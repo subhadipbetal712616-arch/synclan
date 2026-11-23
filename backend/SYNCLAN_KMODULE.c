@@ -39,8 +39,8 @@ module_param(role_admin, int, 0444);
 MODULE_PARM_DESC(role_admin, "1 for admin collector node, 0 for client node");
 
 static char local_ip[16] = "127.0.0.1";
-module_param_string(local_ip, local_ip, sizeof(local_ip), 0444);
-MODULE_PARAM_DESC(local_ip,"Local host IPV4 address for local health only");
+module_param_string(local_ip,local_ip, sizeof(local_ip), 0444);
+MODULE_PARM_DESC(local_ip,"Local host IPV4 address for local health only");
 
 static int server_port = SERVER_PORT;
 module_param(server_port, int, 0444);
@@ -168,18 +168,20 @@ static void record_client_log(const char *ip, const char *payload)
 }
 
 /* Format client/local log snapshot */
-static int format_client_log(char *buf, size_t buf_len)
+static ssize_t format_client_log(char *buf, size_t buf_len)
 {
-u64 uptime_sec = ktime_get_seconds();
+int i;
+size_t offset = 0;
+u64 now_sec = ktime_get_seconds();
 time64_t epoch_sec = ktime_get_real_seconds();
 unsigned long local_free_mb = get_local_free_ram_mb();
 
 mutex_lock(&node_lock);
-refresh_node_states_locked(uptime_sec);
+refresh_node_states_locked(now_sec);
 
 offset += scnprintf(buf + offset, buf_len - offset,
 		    "=== SyncLAN Client Log (ts=%lld, uptime=%llus, free_ram=%luMB, nodes=%d/%d) ===\n",
-		    (long long)epoch_sec, uptime_sec, local_free_mb, node_count, MAX_NODES);	for (i = 0; i < node_count && offset < (int)buf_len - 1; i++) {
+		    (long long)epoch_sec, now_sec, local_free_mb, node_count, MAX_NODES);	for (i = 0; i < node_count && offset < (int)buf_len - 1; i++) {
 		offset += scnprintf(buf + offset, buf_len - offset,
 				    "node=%s ip=%s status=%s age=%llus free_ram=%luMB\n",
 				    nodes[i].name,
@@ -195,18 +197,20 @@ offset += scnprintf(buf + offset, buf_len - offset,
 }
 
 /* Format aggregated logs from all clients on the admin node */
-static int format_admin_log(char *buf, size_t buf_len)
+static ssize_t format_admin_log(char *buf, size_t buf_len)
 {
-u64 uptime_sec = ktime_get_seconds();
+int i;
+size_t offset = 0;
+u64 now_sec = ktime_get_seconds();
 time64_t epoch_sec = ktime_get_real_seconds();
 unsigned long local_free_mb = get_local_free_ram_mb();
 
 mutex_lock(&node_lock);
-refresh_node_states_locked(uptime_sec);
+refresh_node_states_locked(now_sec);
 
 offset += scnprintf(buf + offset, buf_len - offset,
 		    "=== SyncLAN Client Log (ts=%lld, uptime=%llus, free_ram=%luMB, nodes=%d/%d) ===\n",
-		    (long long)epoch_sec, uptime_sec, local_free_mb, node_count, MAX_NODES);
+		    (long long)epoch_sec, now_sec, local_free_mb, node_count, MAX_NODES);
 	for (i = 0; i < node_count && offset < (int)buf_len - 1; i++) {
 		u64 age = now_sec >= nodes[i].last_seen_sec ?
 			  (now_sec - nodes[i].last_seen_sec) : 0;
